@@ -16,12 +16,12 @@ logger = Logger.current_logger()
 
 params = task.connect({
     'clusters': 8,
-    'min_sku_freq': 0,
+    'min_sku_freq': 80,
     'valid_sample_count': 100000,
     'initial_temperature': 1000000,
     'temperature_decay': 0.999997,
     'annealing_steps': 4000,
-    'double_change_chance': 0.2
+    'double_change_chance': 0
 })
 
 
@@ -35,14 +35,15 @@ annealing = Annealing(
     T=params['initial_temperature'],
     decay=params['temperature_decay'],
     valid_sample_count=params['valid_sample_count'],
-    data=data,
+    data=filtered_data,
     double_change_chance=params['double_change_chance']
 )
 
 annealing.anneal(params['annealing_steps'], logger=logger)
 cluster_map = annealing.get_cluster_map()
 
-evaluator = Evaluator(cluster_map, sku_vals, sku_id2name(), Path('images'), data)
+evaluator = Evaluator(cluster_map, filtered_sku_vals, sku_id2name(),
+                      Path('images'), filtered_data)
 
 evaluator.clearml_image_summary(logger)
 logger.report_table(

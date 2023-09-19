@@ -31,6 +31,7 @@ class Annealing:
     def anneal_once(self):
         self.acceptance_rate *= 0.995
         self.improvement_rate *= 0.995
+        self.loss_delta *= 0.995
         self.iterations += 1
 
         changes = self.generate_changes()
@@ -41,7 +42,6 @@ class Annealing:
             self.cluster_map.apply_change(changes[1])
             self.acceptance_rate += 0.005
             self.improvement_rate += 0.005 * (exp_change < 0)
-            self.loss_delta *= 0.995
             self.loss_delta += 0.005 * exp_change
 
         self.T *= self.decay
