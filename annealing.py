@@ -38,8 +38,8 @@ class Annealing:
         exp_change = self.cluster_map.calculate_loss(changes)
 
         if exp_change < 0 or np.exp(-exp_change / self.T) > np.random.rand():
-            self.cluster_map.apply_change(changes[0])
-            self.cluster_map.apply_change(changes[1])
+            for change in changes:
+                self.cluster_map.apply_change(change)
             self.acceptance_rate += 0.005
             self.improvement_rate += 0.005 * (exp_change < 0)
             self.loss_delta += 0.005 * exp_change
@@ -59,7 +59,7 @@ class Annealing:
         ]
 
         if np.random.rand() < self.double_change_chance:
-            mask = cluster_map[original_cluster_id, self.cross_idx[sku_idx]]
+            mask = cluster_map[original_cluster_id, self.cross_idx[sku_idx]].astype(bool)
             if sum(mask) > 0:
                 probs = self.cross_probs[sku_idx][mask]
                 probs = probs / probs.sum()

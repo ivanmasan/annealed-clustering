@@ -16,7 +16,7 @@ logger = Logger.current_logger()
 
 params = task.connect({
     'clusters': 8,
-    'min_sku_freq': 80,
+    'min_sku_freq': 20,
     'valid_sample_count': 100000,
     'initial_temperature': 1000000,
     'temperature_decay': 0.999997,

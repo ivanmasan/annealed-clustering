@@ -5,10 +5,10 @@ from data_load import load_data, filter_infrequent_skus, sample_data, sku_id2nam
 from evaluator import Evaluator
 
 clusters = 8
-min_sku_freq = 0
+min_sku_freq = 10
 valid_sample_count = 100000
 initial_temperature = 1000000
-temperature_decay = 0.999997
+temperature_decay = 0.99999
 annealing_steps = 1000000
 
 
@@ -22,10 +22,11 @@ annealing = Annealing(
     T=initial_temperature,
     decay=temperature_decay,
     valid_sample_count=valid_sample_count,
-    data=data
+    data=filtered_data
 )
 
-annealing.anneal(annealing_steps)
+annealing.anneal(annealing_steps, verbose=True)
 cluster_map = annealing.get_cluster_map()
 
-evaluator = Evaluator(cluster_map, sku_vals, sku_id2name(), Path('images'), data)
+evaluator = Evaluator(cluster_map, filtered_sku_vals, sku_id2name(),
+                      Path('images'), filtered_data)

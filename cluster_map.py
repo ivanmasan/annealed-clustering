@@ -7,9 +7,8 @@ from scipy.sparse import coo_matrix
 
 
 class ClusterMap:
-    bins = [0.5, 1.5, 2.5, 3.5, 4.5, 5.5]
-
     def __init__(self, data, clusters):
+        self._set_bins()
         self.data = data
 
         self.cluster_map = self._init_cluster_map(clusters, data.shape[1])
@@ -27,14 +26,27 @@ class ClusterMap:
 
         self.cluster_counts = self.cluster_data.sum(0)
 
+    def _set_bins(self):
+        self.bins = [0.5, 1.5, 2.5, 3.5, 4.5, 5.5]
+        self.bin_delta = 1
+        self.bin_diffs = np.linspace(-6, 6, 13)
+
     def _init_cluster_map(self, clusters, skus):
         cluster_map = np.full(shape=(clusters, skus), fill_value=0)
         for i in range(skus):
             cluster_map[np.random.randint(cluster_map.shape[0]), i] = 1
         return cluster_map
 
+    def apply_changes_calculate_loss(self, changes):
+        loss = 0
+        for change in changes:
+            loss += self.calculate_loss_simple(change)
+            self.apply_change(change)
+        return loss
+
     def apply_change(self, change):
         self.cluster_map[change.cluster_id, change.sku_id] += change.delta
+        assert 1 >= self.cluster_map[change.cluster_id, change.sku_id] >= 0
 
         delta_cluster_map = coo_matrix(
             ([change.delta], ([change.sku_id], [change.cluster_id])),
@@ -124,21 +136,17 @@ class ClusterMap:
                 if np.all(left_values_array == 0) and np.all(right_values_array == 0):
                     continue
 
-                p, a = np.meshgrid(counts_dict[left_values], counts_dict[right_values])
-                combinations = p * a
-
-                left_larger = np.tril(combinations, -1).sum()
-                equal = np.tril(combinations).sum() - left_larger
-                right_larger = combinations.sum() - left_larger - equal
+                diff_counts = np.convolve(counts_dict[left_values], counts_dict[right_values][::-1])
 
                 left_change = (change_vector * left_values_array).sum()
                 right_change = (change_vector * right_values_array).sum()
 
-                total_change += (
-                    left_larger * left_change
-                    + right_larger * right_change
-                    + equal * np.minimum(left_change, right_change)
+                loss_delta = (
+                    np.minimum(self.bin_diffs + left_change, right_change)
+                    - np.minimum(self.bin_diffs, 0)
                 )
+
+                total_change += (loss_delta * diff_counts).sum()
         return total_change
 
     def calculate_loss_simple(self, change):
@@ -190,4 +198,3 @@ class ClusterMap:
             + equal * (change.delta < 0) * 2
             + sku_mask.nnz ** 2
         ) * change.delta
-
