@@ -19,9 +19,9 @@ params = task.connect({
     'min_sku_freq': 20,
     'valid_sample_count': 100000,
     'initial_temperature': 1000000,
-    'temperature_decay': 0.999997,
-    'annealing_steps': 4000,
-    'double_change_chance': 0
+    'temperature_decay': 0.999998,
+    'annealing_steps': 2000000,
+    'double_change_chance': 0.2
 })
 
 
