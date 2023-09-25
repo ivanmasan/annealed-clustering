@@ -7,11 +7,11 @@ from scipy.sparse import coo_matrix
 
 
 class ClusterMap:
-    def __init__(self, data, clusters):
+    def __init__(self, data, clusters, split_proportions=0):
         self._set_bins()
         self.data = data
 
-        self.cluster_map = self._init_cluster_map(clusters, data.shape[1])
+        self._init_cluster_map(clusters, data.shape[1], split_proportions)
         self.cluster_data = data @ self.cluster_map.T
 
         self.clusters = self.cluster_map.shape[0]
@@ -27,15 +27,25 @@ class ClusterMap:
         self.cluster_counts = self.cluster_data.sum(0)
 
     def _set_bins(self):
-        self.bins = [0.5, 1.5, 2.5, 3.5, 4.5, 5.5]
-        self.bin_delta = 1
-        self.bin_diffs = np.linspace(-6, 6, 13)
+#        self.bins = [0.5, 1.5, 2.5, 3.5, 4.5, 5.5]
+#        self.bin_delta = 1
+#        self.bin_diffs = np.linspace(-6, 6, 13)
+        self.bins = np.linspace(0.25, 5.75, 12)
+        self.bin_delta = 0.5
+        self.bin_diffs = np.linspace(-6, 6, 25)
 
-    def _init_cluster_map(self, clusters, skus):
-        cluster_map = np.full(shape=(clusters, skus), fill_value=0)
+    def _init_cluster_map(self, clusters, skus, split_proportions):
+        self.cluster_map = np.full(shape=(clusters, skus), fill_value=0.0)
+        self.state_map = np.full(skus, 0)
+
         for i in range(skus):
-            cluster_map[np.random.randint(cluster_map.shape[0]), i] = 1
-        return cluster_map
+            if np.random.rand() < split_proportions:
+                k, l = np.random.choice(np.arange(clusters), 2, replace=False)
+                self.cluster_map[k, i] = 0.5
+                self.cluster_map[l, i] = 0.5
+                self.state_map[i] = 1
+            else:
+                self.cluster_map[np.random.randint(clusters), i] = 1
 
     def apply_changes_calculate_loss(self, changes):
         loss = 0
@@ -72,6 +82,9 @@ class ClusterMap:
         self.digitized_cluster_data_counts[new_items, cols[0]] += new_counts
 
         self.cluster_counts[change.cluster_id] += change.delta
+
+    def apply_state_change(self, state_change):
+        self.state_map[state_change.sku_id] += state_change.delta
 
     def calculate_loss(self, changes):
         changes_by_cluster = defaultdict(list)

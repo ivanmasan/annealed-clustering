@@ -21,7 +21,11 @@ params = task.connect({
     'initial_temperature': 1000000,
     'temperature_decay': 0.999998,
     'annealing_steps': 2000000,
-    'double_change_chance': 0.2
+    'double_change_chance': 0.2,
+    'use_split_clusters': True,
+    'split_weight': 0.4,
+    'merge_prob': 0.2,
+    'cluster_state_reg': 0.4
 })
 
 
@@ -36,7 +40,11 @@ annealing = Annealing(
     decay=params['temperature_decay'],
     valid_sample_count=params['valid_sample_count'],
     data=filtered_data,
-    double_change_chance=params['double_change_chance']
+    use_split_clusters=params['use_split_clusters'],
+    split_weight=params['split_weight'],
+    double_change_weight=params['double_change_chance'],
+    merge_prob=params['merge_prob'],
+    cluster_state_reg=params['cluster_state_reg']
 )
 
 annealing.anneal(params['annealing_steps'], logger=logger)

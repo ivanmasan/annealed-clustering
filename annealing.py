@@ -1,14 +1,25 @@
 import numpy as np
 
-from changes import MatrixChange
+from changes import MatrixChange, StateChange, simple_change_generator, split_change_generator
 from cluster_map import ClusterMap
 from data_load import sample_data
 
 
 class Annealing:
-    def __init__(self, clusters, T, decay, valid_sample_count, data, double_change_chance=0):
-        self.cluster_map = ClusterMap(data, clusters)
-        self.double_change_chance = double_change_chance
+    def __init__(
+            self,
+            clusters, T, decay,
+            valid_sample_count,
+            data,
+            use_split_clusters=False,
+            double_change_weight=0,
+            split_weight=1,
+            merge_prob=0.3,
+            initial_split_proportion=0,
+            cluster_state_reg=0
+    ):
+        self.cluster_map = ClusterMap(data, clusters, initial_split_proportion)
+        self.state_sum = sum(self.cluster_map.state_map)
         self.T = T
         self.decay = decay
         self.valid_orders = (
@@ -16,17 +27,22 @@ class Annealing:
             sample_data(data, valid_sample_count)
         )
 
-        cross = (data.T @ data).A
-        cross = cross / np.diag(cross).reshape(-1, 1)
-        self.cross_idx = np.argsort(cross, axis=1)[:, -20:-1]
-        cross_val = np.take_along_axis(cross, self.cross_idx, axis=1)
-        cross_probs = np.exp(cross_val / 0.02)
-        self.cross_probs = cross_probs / cross_probs.sum(1, keepdims=True)
+        if use_split_clusters:
+            self.change_generator = split_change_generator(
+                data=data,
+                double_sugggestion_weight=double_change_weight,
+                split_weight=split_weight,
+                merge_prob=merge_prob
+            )
+        else:
+            self.change_generator = simple_change_generator(data, double_change_weight)
 
         self.improvement_rate = 0
         self.acceptance_rate = 0
         self.loss_delta = 0
         self.iterations = 0
+
+        self.cluster_state_reg = cluster_state_reg
 
     def anneal_once(self):
         self.acceptance_rate *= 0.995
@@ -34,42 +50,28 @@ class Annealing:
         self.loss_delta *= 0.995
         self.iterations += 1
 
-        changes = self.generate_changes()
-        exp_change = self.cluster_map.calculate_loss(changes)
+        matrix_changes, state_changes = self.change_generator.suggest_changes(
+            cluster_map=self.cluster_map.cluster_map,
+            cluster_state=self.cluster_map.state_map
+        )
+        exp_change = self.cluster_map.calculate_loss(matrix_changes)
+        exp_change += self._state_change_loss(state_changes)
 
         if exp_change < 0 or np.exp(-exp_change / self.T) > np.random.rand():
-            for change in changes:
-                self.cluster_map.apply_change(change)
+            for matrix_change in matrix_changes:
+                self.cluster_map.apply_change(matrix_change)
+            for state_change in state_changes:
+                self.cluster_map.apply_state_change(state_change)
+                self.state_sum += state_change.delta
             self.acceptance_rate += 0.005
             self.improvement_rate += 0.005 * (exp_change < 0)
             self.loss_delta += 0.005 * exp_change
 
         self.T *= self.decay
 
-    def generate_changes(self):
-        cluster_map = self.cluster_map.cluster_map
-        clusters = cluster_map.shape[0]
-        sku_idx = np.random.randint(cluster_map.shape[1])
-        original_cluster_id = np.where(cluster_map[:, sku_idx])[0][0]
-        new_cluster_id = (original_cluster_id + 1 + np.random.randint(clusters - 1)) % clusters
-
-        changes = [
-            MatrixChange(sku_idx, original_cluster_id, -1),
-            MatrixChange(sku_idx, new_cluster_id, 1),
-        ]
-
-        if np.random.rand() < self.double_change_chance:
-            mask = cluster_map[original_cluster_id, self.cross_idx[sku_idx]].astype(bool)
-            if sum(mask) > 0:
-                probs = self.cross_probs[sku_idx][mask]
-                probs = probs / probs.sum()
-                second_sku_idx = np.random.choice(self.cross_idx[sku_idx][mask], p=probs)
-                changes.extend([
-                    MatrixChange(second_sku_idx, original_cluster_id, -1),
-                    MatrixChange(second_sku_idx, new_cluster_id, 1)
-                ])
-
-        return changes
+    def _state_change_loss(self, state_changes):
+        state_change = sum([change.delta for change in state_changes])
+        return np.exp(self.state_sum * self.cluster_state_reg) * self.cluster_state_reg * state_change
 
     def anneal(self, iters, verbose=0, logger=None):
         for _ in range(iters):
