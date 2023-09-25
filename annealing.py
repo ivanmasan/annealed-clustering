@@ -89,7 +89,8 @@ class Annealing:
                      / self.valid_orders[0].shape[0],
             "Improvement Rate": self.improvement_rate,
             "Acceptance Rate": (self.acceptance_rate - self.improvement_rate) / (1 - self.improvement_rate),
-            "Loss Delta": self.loss_delta
+            "Loss Delta": self.loss_delta,
+            "Splitted Items": self.state_sum
         }
 
     def _print_status(self):

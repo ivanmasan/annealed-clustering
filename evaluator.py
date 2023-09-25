@@ -30,44 +30,51 @@ class Evaluator:
             (output_folder / str(i)).mkdir(exist_ok=True)
 
         for i in range(len(self.sku_vals)):
-            cluster_id = np.argmax(self.cluster_map[:, i])
-            image_name = str(self.sku_vals[i]) + '.jpg'
+            clusters = np.where(self.cluster_map[:, i] > 0)[0]
+            for cluster in clusters:
+                image_name = str(self.sku_vals[i]) + '.jpg'
 
-            source_image = self.image_path / image_name
-            if not source_image.exists():
-                continue
+                source_image = self.image_path / image_name
+                if not source_image.exists():
+                    continue
 
-            shutil.copy(
-                source_image,
-                output_folder / str(cluster_id) / image_name
-            )
+                shutil.copy(
+                    source_image,
+                    output_folder / str(cluster) / image_name
+                )
 
     def clearml_image_summary(self, logger):
         for i in range(len(self.sku_vals)):
-            cluster_id = np.argmax(self.cluster_map[:, i])
-            image_name = str(self.sku_vals[i]) + '.jpg'
-            source_image = self.image_path / image_name
-            if not source_image.exists():
-                continue
+            clusters = np.where(self.cluster_map[:, i] > 0)[0]
 
-            logger.report_image(
-                str(cluster_id),
-                str(self.sku_vals[i]),
-                iteration=0,
-                image=Image.open(source_image)
-            )
+            for cluster in clusters:
+                image_name = str(self.sku_vals[i]) + '.jpg'
+                source_image = self.image_path / image_name
+                if not source_image.exists():
+                    continue
+
+                logger.report_image(
+                    str(cluster),
+                    str(self.sku_vals[i]),
+                    iteration=0,
+                    image=Image.open(source_image)
+                )
 
     def data_summary(self, output_path=None):
         ret = []
         item_sum = self.data.sum(axis=0).A.flatten()
 
         for i in range(len(self.sku_vals)):
-            ret.append({
-                'sku': self.sku_vals[i],
-                'name': self.sku_id2name[self.sku_vals[i]],
-                'cluster': np.argmax(self.cluster_map[:, i]),
-                'order_frequency': item_sum[i]
-            })
+            clusters = np.where(self.cluster_map[:, i] > 0)[0]
+
+            for cluster in clusters:
+                ret.append({
+                    'sku': self.sku_vals[i],
+                    'name': self.sku_id2name[self.sku_vals[i]],
+                    'cluster': cluster,
+                    'order_frequency': item_sum[i],
+                    'weight': self.cluster_map[cluster, i]
+                })
         ret = pd.DataFrame(ret)
         if output_path is not None:
             ret.to_csv(output_path)

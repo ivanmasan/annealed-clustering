@@ -20,7 +20,7 @@ params = task.connect({
     'valid_sample_count': 100000,
     'initial_temperature': 1000000,
     'temperature_decay': 0.999998,
-    'annealing_steps': 2000000,
+    'annealing_steps': 2000,
     'double_change_chance': 0.2,
     'use_split_clusters': True,
     'split_weight': 0.4,
@@ -59,5 +59,8 @@ logger.report_table(
     "-",
     table_plot=evaluator.data_summary()
 )
+
+task.upload_artifact("Cluster Map", artifact_object=cluster_map)
+task.upload_artifact("Sku Vector", artifact_object=filtered_sku_vals)
 
 task.close()
