@@ -71,7 +71,10 @@ class Annealing:
 
     def _state_change_loss(self, state_changes):
         state_change = sum([change.delta for change in state_changes])
-        return np.exp(self.state_sum * self.cluster_state_reg) * self.cluster_state_reg * state_change
+        return (
+            np.exp((self.state_sum + state_change) * self.cluster_state_reg)
+            - np.exp(self.state_sum * self.cluster_state_reg)
+        )
 
     def anneal(self, iters, verbose=0, logger=None):
         for _ in range(iters):
