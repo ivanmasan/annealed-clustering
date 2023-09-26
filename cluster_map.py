@@ -95,10 +95,7 @@ class ClusterMap:
         total_loss_change = 0
 
         for cluster_changes in changes_by_cluster.values():
-            if len(cluster_changes) == 1:
-                cluster_loss = self.calculate_loss_simple(cluster_changes[0])
-            else:
-                cluster_loss = self.calculate_cluster_loss(cluster_changes)
+            cluster_loss = self.calculate_cluster_loss(cluster_changes)
             total_loss_change += cluster_loss
 
         return total_loss_change

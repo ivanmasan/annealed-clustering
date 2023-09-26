@@ -40,6 +40,7 @@ class Annealing:
         self.improvement_rate = 0
         self.acceptance_rate = 0
         self.loss_delta = 0
+        self.cummulative_loss = 0
         self.iterations = 0
 
         self.cluster_state_reg = cluster_state_reg
@@ -66,6 +67,7 @@ class Annealing:
             self.acceptance_rate += 0.005
             self.improvement_rate += 0.005 * (exp_change < 0)
             self.loss_delta += 0.005 * exp_change
+            self.cummulative_loss += exp_change
 
         self.T *= self.decay
 
@@ -93,6 +95,7 @@ class Annealing:
             "Improvement Rate": self.improvement_rate,
             "Acceptance Rate": (self.acceptance_rate - self.improvement_rate) / (1 - self.improvement_rate),
             "Loss Delta": self.loss_delta,
+            "Cummulative Loss": self.cummulative_loss,
             "Splitted Items": self.state_sum
         }
 

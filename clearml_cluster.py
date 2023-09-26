@@ -18,12 +18,12 @@ params = task.connect({
     'clusters': 8,
     'min_sku_freq': 20,
     'valid_sample_count': 100000,
-    'initial_temperature': 1000000,
+    'initial_temperature': 1500000,
     'temperature_decay': 0.999998,
-    'annealing_steps': 2000,
-    'double_change_chance': 0.2,
+    'annealing_steps': 2000000,
+    'double_change_chance': 0.4,
     'use_split_clusters': True,
-    'split_weight': 0.4,
+    'split_weight': 0.3,
     'merge_prob': 0.2,
     'cluster_state_reg': 0.4
 })

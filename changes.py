@@ -14,6 +14,9 @@ class MatrixChange:
     cluster_id: int
     delta: float
 
+    def __post_init__(self):
+        self.delta = float(self.delta)
+
 
 @dataclass
 class StateChange:
@@ -136,13 +139,13 @@ def switch_two_clusters(cluster_map, sku_idx, cross_idx, cross_probs):
 
 
 def split_sku(cluster_map, sku_idx):
+    clusters = cluster_map.shape[0]
     orig_cluster = np.where(cluster_map[:, sku_idx] == 1)[0][0]
-    i, j = np.random.choice(np.arange(cluster_map.shape[0]), 2, replace=False)
+    new_cluster = (orig_cluster + 1 + np.random.randint(clusters - 1)) % clusters
 
     return [
-        MatrixChange(sku_idx, orig_cluster, -1),
-        MatrixChange(sku_idx, i, 0.5),
-        MatrixChange(sku_idx, j, 0.5)
+        MatrixChange(sku_idx, orig_cluster, -0.5),
+        MatrixChange(sku_idx, new_cluster, 0.5),
     ], [StateChange(sku_idx, 1)]
 
 
