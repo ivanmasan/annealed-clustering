@@ -7,11 +7,11 @@ from scipy.sparse import coo_matrix
 
 
 class ClusterMap:
-    def __init__(self, data, clusters, split_proportions=0, bin_delta=1):
+    def __init__(self, data, clusters, bin_delta=1):
         self._set_bins(bin_delta)
         self.data = data
 
-        self._init_cluster_map(clusters, data.shape[1], split_proportions)
+        self._init_cluster_map(clusters, data.shape[1])
         self.cluster_data = data @ self.cluster_map.T
 
         self.clusters = self.cluster_map.shape[0]
@@ -32,18 +32,12 @@ class ClusterMap:
         self.bins = np.linspace(bin_delta / 2, (steps - 0.5) * bin_delta, steps)
         self.bin_diffs = np.linspace(-6, 6, steps * 2 + 1)
 
-    def _init_cluster_map(self, clusters, skus, split_proportions):
+    def _init_cluster_map(self, clusters, skus):
         self.cluster_map = np.full(shape=(clusters, skus), fill_value=0.0)
         self.state_map = np.full(skus, 0)
 
         for i in range(skus):
-            if np.random.rand() < split_proportions:
-                k, l = np.random.choice(np.arange(clusters), 2, replace=False)
-                self.cluster_map[k, i] = 0.5
-                self.cluster_map[l, i] = 0.5
-                self.state_map[i] = 1
-            else:
-                self.cluster_map[np.random.randint(clusters), i] = 1
+            self.cluster_map[np.random.randint(clusters), i] = 1
 
     def apply_changes_calculate_loss(self, changes):
         loss = 0

@@ -8,7 +8,7 @@ from evaluator import Evaluator
 
 clusters = 8
 min_sku_freq = 20
-valid_sample_count = 100000
+valid_sample_count = 1000000
 initial_temperature = 1500000
 temperature_decay = 0.999998
 annealing_steps = 20000
@@ -25,7 +25,6 @@ annealing = Annealing(
     decay=temperature_decay,
     valid_sample_count=valid_sample_count,
     data=filtered_data,
-    initial_split_proportion=0,
     use_split_clusters=True,
     split_weight=0.3,
     double_change_weight=0.4,

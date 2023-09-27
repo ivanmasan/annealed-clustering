@@ -9,7 +9,7 @@ from clearml import Task, Logger
 
 task = Task.current_task()
 if task is None:
-    task = Task.init(project_name='clustering/anneal', task_name="Test Task")
+    task = Task.init(project_name='clustering/anneal', task_name="Test Task 2")
 
 logger = Logger.current_logger()
 
@@ -17,7 +17,7 @@ logger = Logger.current_logger()
 params = task.connect({
     'clusters': 8,
     'min_sku_freq': 20,
-    'valid_sample_count': 100000,
+    'valid_sample_count': 1000000,
     'initial_temperature': 1500000,
     'temperature_decay': 0.999998,
     'annealing_steps': 2000000,
@@ -46,7 +46,9 @@ annealing = Annealing(
     split_weight=params['split_weight'],
     double_change_weight=params['double_change_chance'],
     merge_prob=params['merge_prob'],
-    cluster_state_reg=params['cluster_state_reg']
+    cluster_state_reg=params['cluster_state_reg'],
+    bin_delta=params['bin_delta'],
+    split_value=params['split_value']
 )
 
 annealing.anneal(params['annealing_steps'], logger=logger)

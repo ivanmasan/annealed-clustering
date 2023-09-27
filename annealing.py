@@ -15,12 +15,12 @@ class Annealing:
             double_change_weight=0,
             split_weight=1,
             merge_prob=0.3,
-            initial_split_proportion=0,
             cluster_state_reg=0,
             split_value=0.5,
             bin_delta=1
     ):
-        self.cluster_map = ClusterMap(data, clusters, initial_split_proportion, bin_delta)
+        self.cluster_map = ClusterMap(data, clusters, bin_delta)
+        self.data_count = data.shape[0]
         self.state_sum = sum(self.cluster_map.state_map)
         self.T = T
         self.decay = decay
@@ -48,8 +48,10 @@ class Annealing:
 
         self.cluster_state_reg = cluster_state_reg
 
-        print(loss(self.valid_orders[0], self.valid_orders[1], self.cluster_map.cluster_map)
-              / self.valid_orders[0].shape[0])
+        self.base_loss = (
+            loss(self.valid_orders[0], self.valid_orders[1], self.cluster_map.cluster_map)
+            / self.valid_orders[0].shape[0]
+        )
 
     def anneal_once(self):
         self.acceptance_rate *= 0.995
@@ -73,7 +75,7 @@ class Annealing:
             self.acceptance_rate += 0.005
             self.improvement_rate += 0.005 * (exp_change < 0)
             self.loss_delta += 0.005 * exp_change
-            self.cummulative_loss += exp_change
+            self.cummulative_loss += exp_change / (self.data_count ** 2)
 
         self.T *= self.decay
 
@@ -94,10 +96,13 @@ class Annealing:
                     self._report_status(logger)
 
     def _generate_metrics(self):
+        sample_loss = (loss(self.valid_orders[0], self.valid_orders[1], self.cluster_map.cluster_map)
+                       / self.valid_orders[0].shape[0])
         return {
             "Iterations": self.iterations,
-            "Loss": loss(self.valid_orders[0], self.valid_orders[1], self.cluster_map.cluster_map)
-                     / self.valid_orders[0].shape[0],
+            "Sample Loss": sample_loss,
+            "Estimated Loss": self.base_loss + self.cummulative_loss,
+            "Loss Discrepancy": self.base_loss + self.cummulative_loss - sample_loss,
             "Improvement Rate": self.improvement_rate,
             "Acceptance Rate": (self.acceptance_rate - self.improvement_rate) / (1 - self.improvement_rate),
             "Loss Delta": self.loss_delta,
