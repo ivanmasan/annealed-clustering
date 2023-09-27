@@ -16,9 +16,11 @@ class Annealing:
             split_weight=1,
             merge_prob=0.3,
             initial_split_proportion=0,
-            cluster_state_reg=0
+            cluster_state_reg=0,
+            split_value=0.5,
+            bin_delta=1
     ):
-        self.cluster_map = ClusterMap(data, clusters, initial_split_proportion)
+        self.cluster_map = ClusterMap(data, clusters, initial_split_proportion, bin_delta)
         self.state_sum = sum(self.cluster_map.state_map)
         self.T = T
         self.decay = decay
@@ -32,7 +34,8 @@ class Annealing:
                 data=data,
                 double_sugggestion_weight=double_change_weight,
                 split_weight=split_weight,
-                merge_prob=merge_prob
+                merge_prob=merge_prob,
+                split_value=split_value
             )
         else:
             self.change_generator = simple_change_generator(data, double_change_weight)
@@ -44,6 +47,9 @@ class Annealing:
         self.iterations = 0
 
         self.cluster_state_reg = cluster_state_reg
+
+        print(loss(self.valid_orders[0], self.valid_orders[1], self.cluster_map.cluster_map)
+              / self.valid_orders[0].shape[0])
 
     def anneal_once(self):
         self.acceptance_rate *= 0.995

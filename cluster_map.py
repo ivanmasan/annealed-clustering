@@ -7,8 +7,8 @@ from scipy.sparse import coo_matrix
 
 
 class ClusterMap:
-    def __init__(self, data, clusters, split_proportions=0):
-        self._set_bins()
+    def __init__(self, data, clusters, split_proportions=0, bin_delta=1):
+        self._set_bins(bin_delta)
         self.data = data
 
         self._init_cluster_map(clusters, data.shape[1], split_proportions)
@@ -26,13 +26,11 @@ class ClusterMap:
 
         self.cluster_counts = self.cluster_data.sum(0)
 
-    def _set_bins(self):
-#        self.bins = [0.5, 1.5, 2.5, 3.5, 4.5, 5.5]
-#        self.bin_delta = 1
-#        self.bin_diffs = np.linspace(-6, 6, 13)
-        self.bins = np.linspace(0.25, 5.75, 12)
-        self.bin_delta = 0.5
-        self.bin_diffs = np.linspace(-6, 6, 25)
+    def _set_bins(self, bin_delta):
+        steps = np.floor(6 / bin_delta).astype(int)
+
+        self.bins = np.linspace(bin_delta / 2, (steps - 0.5) * bin_delta, steps)
+        self.bin_diffs = np.linspace(-6, 6, steps * 2 + 1)
 
     def _init_cluster_map(self, clusters, skus, split_proportions):
         self.cluster_map = np.full(shape=(clusters, skus), fill_value=0.0)

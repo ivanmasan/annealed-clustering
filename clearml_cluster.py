@@ -25,7 +25,9 @@ params = task.connect({
     'use_split_clusters': True,
     'split_weight': 0.3,
     'merge_prob': 0.2,
-    'cluster_state_reg': 0.4
+    'cluster_state_reg': 0,
+    'split_value': 0.4,
+    'bin_delta': 0.2
 })
 
 

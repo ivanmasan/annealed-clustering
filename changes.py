@@ -49,13 +49,13 @@ def simple_change_generator(data, double_sugggestion_ratio):
     return ChangeGenerator(change_policies, data.shape[1])
 
 
-def split_change_generator(data, double_sugggestion_weight, split_weight, merge_prob):
+def split_change_generator(data, double_sugggestion_weight, split_weight, merge_prob, split_value):
     cross_idx, cross_probs = generate_cross(data)
     cross_dict = {'cross_idx': cross_idx, 'cross_probs': cross_probs}
     change_policies = [
         ChangePolicy([0], switch_single_cluster, 1),
         ChangePolicy([0], switch_two_clusters, double_sugggestion_weight, cross_dict),
-        ChangePolicy([0], split_sku, split_weight),
+        ChangePolicy([0], split_sku, split_weight, {'split_value': split_value}),
         ChangePolicy([1], merge_sku, merge_prob),
         ChangePolicy([1], move_split_sku, 1 - merge_prob)
     ]
@@ -138,14 +138,14 @@ def switch_two_clusters(cluster_map, sku_idx, cross_idx, cross_probs):
     return changes + additional_changes, []
 
 
-def split_sku(cluster_map, sku_idx):
+def split_sku(cluster_map, sku_idx, split_value=0.5):
     clusters = cluster_map.shape[0]
     orig_cluster = np.where(cluster_map[:, sku_idx] == 1)[0][0]
     new_cluster = (orig_cluster + 1 + np.random.randint(clusters - 1)) % clusters
 
     return [
-        MatrixChange(sku_idx, orig_cluster, -0.5),
-        MatrixChange(sku_idx, new_cluster, 0.5),
+        MatrixChange(sku_idx, orig_cluster, split_value - 1),
+        MatrixChange(sku_idx, new_cluster, split_value),
     ], [StateChange(sku_idx, 1)]
 
 
@@ -154,8 +154,8 @@ def merge_sku(cluster_map, sku_idx):
     np.random.shuffle(clusters)
 
     return [
-        MatrixChange(sku_idx, clusters[0], -0.5),
-        MatrixChange(sku_idx, clusters[1], 0.5)
+        MatrixChange(sku_idx, clusters[0], -cluster_map[clusters[0], sku_idx]),
+        MatrixChange(sku_idx, clusters[1], 1 - cluster_map[clusters[1], sku_idx])
     ], [StateChange(sku_idx, -1)]
 
 
@@ -164,9 +164,12 @@ def move_split_sku(cluster_map, sku_idx):
     new_clusters = np.arange(cluster_map.shape[0])
     new_clusters = np.delete(new_clusters, clusters)
 
+    from_cluster = np.random.choice(clusters)
+    value = cluster_map[from_cluster, sku_idx]
+
     return [
-        MatrixChange(sku_idx, np.random.choice(clusters), -0.5),
-        MatrixChange(sku_idx, np.random.choice(new_clusters), 0.5)
+        MatrixChange(sku_idx, from_cluster, -value),
+        MatrixChange(sku_idx, np.random.choice(new_clusters), value)
     ], []
 
 
@@ -182,23 +185,22 @@ def generate_cross(data, top_n_similiar=20, prob_smoothness=0.02):
 
 
 
-
 if False:
     cluster_map = np.full(shape=(4, 8), fill_value=0.0)
     for i in range(8):
         cluster_map[np.random.randint(cluster_map.shape[0]), i] = 1.0
 
-    cluster_state = np.full(8, 1)
+    cluster_state = np.full(8, 0)
 
-    for _ in range(3):
-        idx = np.random.choice(np.arange(8))
-        cluster_state[idx] = 2
-        cluster_map[:, idx] = 0
+    #for _ in range(3):
+    #    idx = np.random.choice(np.arange(8))
+    #    cluster_state[idx] = 2
+    #    cluster_map[:, idx] = 0
 
-        i, j = np.random.choice(np.arange(cluster_map.shape[0]), 2, replace=False)
+    #    i, j = np.random.choice(np.arange(cluster_map.shape[0]), 2, replace=False)
 
-        cluster_map[i, idx] = 0.5
-        cluster_map[j, idx] = 0.5
+    #    cluster_map[i, idx] = 0.5
+    #    cluster_map[j, idx] = 0.5
 
     cluster_map.sum(0)
 
@@ -206,14 +208,15 @@ if False:
     data, sku_vals = load_data()
     data, _ = filter_infrequent_skus(data, 1600)
 
-    generator = ChangeGenerator(data)
+    generator = split_change_generator(data, 0.3, 0.3, 0.3, 1/3)
 
     for i in range(1000):
         matrix_changes, state_changes = generator.suggest_changes(cluster_map, cluster_state)
         print(cluster_map)
+        print(cluster_state)
         for change in matrix_changes:
             cluster_map[change.cluster_id, change.sku_id] += change.delta
         for change in state_changes:
-            cluster_state[change.sku_id] = change.state
+            cluster_state[change.sku_id] += change.delta
 
-        assert np.all(cluster_map.sum(0) == 1)
+        assert np.all((cluster_map.sum(0) == 1) | (cluster_map.sum(0) == 2/3))
