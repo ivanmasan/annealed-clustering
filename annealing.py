@@ -21,6 +21,8 @@ class Annealing:
     ):
         self.cluster_map = ClusterMap(data, clusters, bin_delta)
         self.data_count = data.shape[0]
+        self.data_sum = data.sum(0)
+        self.split_value = split_value
         self.state_sum = sum(self.cluster_map.state_map)
         self.T = T
         self.decay = decay
@@ -43,7 +45,11 @@ class Annealing:
         self.improvement_rate = 0
         self.acceptance_rate = 0
         self.loss_delta = 0
-        self.cummulative_loss = 0
+
+        self.cummulative_base_loss = 0
+        self.cummulative_reg = 0
+        self.cummulative_state_comp = 0
+
         self.iterations = 0
 
         self.cluster_state_reg = cluster_state_reg
@@ -64,18 +70,23 @@ class Annealing:
             cluster_state=self.cluster_map.state_map
         )
         exp_change = self.cluster_map.calculate_loss(matrix_changes)
-        exp_change += self._state_change_loss(state_changes)
+        state_reg = self._state_change_loss(state_changes)
+        loss_comp = self._self_conflict_loss_compensation(state_changes)
+        total_exp_change = state_reg + exp_change + loss_comp
 
-        if exp_change < 0 or np.exp(-exp_change / self.T) > np.random.rand():
+        if total_exp_change < 0 or np.exp(-total_exp_change / self.T) > np.random.rand():
             for matrix_change in matrix_changes:
                 self.cluster_map.apply_change(matrix_change)
             for state_change in state_changes:
                 self.cluster_map.apply_state_change(state_change)
                 self.state_sum += state_change.delta
             self.acceptance_rate += 0.005
-            self.improvement_rate += 0.005 * (exp_change < 0)
-            self.loss_delta += 0.005 * exp_change
-            self.cummulative_loss += exp_change / (self.data_count ** 2)
+            self.improvement_rate += 0.005 * (total_exp_change < 0)
+            self.loss_delta += 0.005 * total_exp_change
+
+            self.cummulative_base_loss += exp_change / (self.data_count ** 2)
+            self.cummulative_reg += state_reg / (self.data_count ** 2)
+            self.cummulative_state_comp += loss_comp / (self.data_count ** 2)
 
         self.T *= self.decay
 
@@ -85,6 +96,16 @@ class Annealing:
             np.exp((self.state_sum + state_change) * self.cluster_state_reg)
             - np.exp(self.state_sum * self.cluster_state_reg)
         )
+
+    def _self_conflict_loss_compensation(self, state_changes):
+        comp = 0
+        for state_change in state_changes:
+            comp += (
+                (self.data_sum[state_change.sku_idx] ** 2)
+                * (1 - self.split_value ** 2)
+                * state_change.delta
+            )
+        return comp
 
     def anneal(self, iters, verbose=0, logger=None):
         for _ in range(iters):
@@ -101,12 +122,12 @@ class Annealing:
         return {
             "Iterations": self.iterations,
             "Sample Loss": sample_loss,
-            "Estimated Loss": self.base_loss + self.cummulative_loss,
-            "Loss Discrepancy": self.base_loss + self.cummulative_loss - sample_loss,
+            "Loss Discrepancy": self.base_loss + self.cummulative_base_loss - sample_loss,
+            "Total Loss": self.base_loss + self.cummulative_base_loss + self.cummulative_reg + self.cummulative_state_comp,
+            "No Reg Loss": self.base_loss + self.cummulative_base_loss + self.cummulative_state_comp,
             "Improvement Rate": self.improvement_rate,
             "Acceptance Rate": (self.acceptance_rate - self.improvement_rate) / (1 - self.improvement_rate),
             "Loss Delta": self.loss_delta,
-            "Cummulative Loss": self.cummulative_loss,
             "Splitted Items": self.state_sum
         }
 

@@ -11,8 +11,29 @@ class ClusterMap:
         self._set_bins(bin_delta)
         self.data = data
 
-        self._init_cluster_map(clusters, data.shape[1])
-        self.cluster_data = data @ self.cluster_map.T
+        cluster_map, state_map = self._init_cluster_map(clusters, data.shape[1])
+        self.set_cluster_map(cluster_map, state_map)
+
+    def _set_bins(self, bin_delta):
+        steps = np.floor(6 / bin_delta).astype(int)
+
+        self.bins = np.linspace(bin_delta / 2, (steps - 0.5) * bin_delta, steps)
+        self.bin_diffs = np.linspace(-6, 6, steps * 2 + 1)
+
+    def _init_cluster_map(self, clusters, skus):
+        cluster_map = np.full(shape=(clusters, skus), fill_value=0.0)
+        state_map = np.full(skus, 0)
+
+        for i in range(skus):
+            cluster_map[np.random.randint(clusters), i] = 1
+
+        return cluster_map, state_map
+
+    def set_cluster_map(self, cluster_map, state_map):
+        self.cluster_map = cluster_map
+        self.state_map = state_map
+
+        self.cluster_data = self.data @ self.cluster_map.T
 
         self.clusters = self.cluster_map.shape[0]
         self.sku_count = self.cluster_map.shape[1]
@@ -25,19 +46,6 @@ class ClusterMap:
             self.digitized_cluster_data_counts[items, i] = counts
 
         self.cluster_counts = self.cluster_data.sum(0)
-
-    def _set_bins(self, bin_delta):
-        steps = np.floor(6 / bin_delta).astype(int)
-
-        self.bins = np.linspace(bin_delta / 2, (steps - 0.5) * bin_delta, steps)
-        self.bin_diffs = np.linspace(-6, 6, steps * 2 + 1)
-
-    def _init_cluster_map(self, clusters, skus):
-        self.cluster_map = np.full(shape=(clusters, skus), fill_value=0.0)
-        self.state_map = np.full(skus, 0)
-
-        for i in range(skus):
-            self.cluster_map[np.random.randint(clusters), i] = 1
 
     def apply_changes_calculate_loss(self, changes):
         loss = 0

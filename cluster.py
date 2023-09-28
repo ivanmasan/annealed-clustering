@@ -29,7 +29,7 @@ annealing = Annealing(
     split_weight=0.3,
     double_change_weight=0.4,
     merge_prob=0.2,
-    cluster_state_reg=0,
+    cluster_state_reg=0.4,
     split_value=0.4,
     bin_delta=0.2
 )
