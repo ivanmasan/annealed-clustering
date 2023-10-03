@@ -21,7 +21,7 @@ class Annealing:
     ):
         self.cluster_map = ClusterMap(data, clusters, bin_delta)
         self.data_count = data.shape[0]
-        self.data_sum = data.sum(0)
+        self.data_sum = data.sum(0).A.flatten()
         self.split_value = split_value
         self.state_sum = sum(self.cluster_map.state_map)
         self.T = T
@@ -101,7 +101,7 @@ class Annealing:
         comp = 0
         for state_change in state_changes:
             comp += (
-                (self.data_sum[state_change.sku_idx] ** 2)
+                (self.data_sum[state_change.sku_id] ** 2)
                 * (1 - self.split_value ** 2)
                 * state_change.delta
             )
