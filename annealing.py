@@ -100,7 +100,7 @@ class Annealing:
     def _self_conflict_loss_compensation(self, state_changes):
         comp = 0
         for state_change in state_changes:
-            comp += (
+            comp -= (
                 (self.data_sum[state_change.sku_id] ** 2)
                 * (1 - self.split_value ** 2)
                 * state_change.delta

@@ -9,7 +9,7 @@ from clearml import Task, Logger
 
 task = Task.current_task()
 if task is None:
-    task = Task.init(project_name='clustering/anneal', task_name="Test Task 2")
+    task = Task.init(project_name='clustering/anneal', task_name="Test Task 3")
 
 logger = Logger.current_logger()
 
