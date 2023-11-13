@@ -5,29 +5,23 @@ from copy import deepcopy
 import numpy as np
 from scipy.sparse import coo_matrix
 
+from changes import MatrixChange
+
 
 class ClusterMap:
-    def __init__(self, data, clusters, bin_delta=1):
-        self._set_bins(bin_delta)
+    def __init__(self, data, cluster_count, bin_delta=1, max_steps=6):
+        self._set_bins(bin_delta, max_steps)
         self.data = data
 
-        cluster_map, state_map = self._init_cluster_map(clusters, data.shape[1])
+        cluster_map = np.full(shape=(cluster_count, data.shape[1]), fill_value=0.0)
+        state_map = np.full(data.shape[1], 0)
         self.set_cluster_map(cluster_map, state_map)
 
-    def _set_bins(self, bin_delta):
-        steps = np.floor(6 / bin_delta).astype(int)
+    def _set_bins(self, bin_delta, max_steps):
+        steps = np.floor(max_steps / bin_delta).astype(int)
 
         self.bins = np.linspace(bin_delta / 2, (steps - 0.5) * bin_delta, steps)
-        self.bin_diffs = np.linspace(-6, 6, steps * 2 + 1)
-
-    def _init_cluster_map(self, clusters, skus):
-        cluster_map = np.full(shape=(clusters, skus), fill_value=0.0)
-        state_map = np.full(skus, 0)
-
-        for i in range(skus):
-            cluster_map[np.random.randint(clusters), i] = 1
-
-        return cluster_map, state_map
+        self.bin_diffs = np.linspace(-max_steps, max_steps, steps * 2 + 1)
 
     def set_cluster_map(self, cluster_map, state_map):
         self.cluster_map = cluster_map
@@ -56,7 +50,7 @@ class ClusterMap:
 
     def apply_change(self, change):
         self.cluster_map[change.cluster_id, change.sku_id] += change.delta
-        assert 1 >= self.cluster_map[change.cluster_id, change.sku_id] >= 0
+#        assert 1 >= self.cluster_map[change.cluster_id, change.sku_id] >= 0
 
         delta_cluster_map = coo_matrix(
             ([change.delta], ([change.sku_id], [change.cluster_id])),

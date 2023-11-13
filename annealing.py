@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.sparse import coo_matrix
 
 from changes import MatrixChange, StateChange, simple_change_generator, split_change_generator
 from cluster_map import ClusterMap
@@ -17,9 +18,23 @@ class Annealing:
             merge_prob=0.3,
             cluster_state_reg=0,
             split_value=0.5,
-            bin_delta=1
+            bin_delta=1,
+            max_steps=6,
+            cross_cluster_map=None
     ):
-        self.cluster_map = ClusterMap(data, clusters, bin_delta)
+        self.cross_cluster_map = cross_cluster_map
+        self._shape = (data.shape[1], clusters)
+
+        self.true_cluster_map = ClusterMap(data, clusters, bin_delta, max_steps)
+        self.cluster_map = ClusterMap(data, clusters, bin_delta, max_steps)
+
+        changes = self._initial_changes(data.shape[1], clusters)
+        for change in changes:
+            self.cluster_map.apply_change(change)
+
+        for change in self._modify_changes(changes):
+            self.true_cluster_map.apply_change(change)
+
         self.data_count = data.shape[0]
         self.data_sum = data.sum(0).A.flatten()
         self.split_value = split_value
@@ -59,6 +74,16 @@ class Annealing:
             / self.valid_orders[0].shape[0]
         )
 
+    def _initial_changes(self, sku_count, cluster_count):
+        changes = []
+        for i in range(sku_count):
+            change = MatrixChange(
+                sku_id=i,
+                cluster_id=np.random.randint(cluster_count),
+                delta=1.0)
+            changes.append(change)
+        return changes
+
     def anneal_once(self):
         self.acceptance_rate *= 0.995
         self.improvement_rate *= 0.995
@@ -69,7 +94,9 @@ class Annealing:
             cluster_map=self.cluster_map.cluster_map,
             cluster_state=self.cluster_map.state_map
         )
-        exp_change = self.cluster_map.calculate_loss(matrix_changes)
+        cross_matrix_changes = self._modify_changes(matrix_changes)
+
+        exp_change = self.true_cluster_map.calculate_loss(cross_matrix_changes)
         state_reg = self._state_change_loss(state_changes)
         loss_comp = self._self_conflict_loss_compensation(state_changes)
         total_exp_change = state_reg + exp_change + loss_comp
@@ -77,6 +104,8 @@ class Annealing:
         if total_exp_change < 0 or np.exp(-total_exp_change / self.T) > np.random.rand():
             for matrix_change in matrix_changes:
                 self.cluster_map.apply_change(matrix_change)
+            for matrix_change in cross_matrix_changes:
+                self.true_cluster_map.apply_change(matrix_change)
             for state_change in state_changes:
                 self.cluster_map.apply_state_change(state_change)
                 self.state_sum += state_change.delta
@@ -110,7 +139,7 @@ class Annealing:
     def anneal(self, iters, verbose=0, logger=None):
         for _ in range(iters):
             self.anneal_once()
-            if self.iterations % 1000 == 0:
+            if self.iterations % 100 == 0:
                 if verbose:
                     self._print_status()
                 if logger is not None:
@@ -148,9 +177,35 @@ class Annealing:
     def get_cluster_map(self):
         return self.cluster_map.cluster_map
 
+    def _modify_changes(self, changes):
+        if self.cross_cluster_map is None:
+            return changes
+
+        m = _changes_to_matrix(changes, self._shape)
+        m = m @ self.cross_cluster_map
+        changes = _matrix_to_changes(m)
+        return changes
+
 
 def loss(left_orders, right_orders, cluster_map):
     left_cluster_mask = left_orders @ cluster_map.T
     right_cluster_mask = right_orders @ cluster_map.T
 
     return np.minimum(left_cluster_mask, right_cluster_mask).sum()
+
+
+def _changes_to_matrix(changes, shape):
+    rows, columns, values = [], [], []
+    for change in changes:
+        rows.append(change.sku_id)
+        columns.append(change.cluster_id)
+        values.append(change.delta)
+    return coo_matrix((values, (rows, columns)), shape=shape).tocsr()
+
+
+def _matrix_to_changes(delta_matrix):
+    delta_matrix = delta_matrix.tocoo()
+    changes = []
+    for r, c, v in zip(delta_matrix.row, delta_matrix.col, delta_matrix.data):
+        changes.append(MatrixChange(sku_id=r, cluster_id=c, delta=v))
+    return changes
